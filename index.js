@@ -6,6 +6,9 @@ const app = express();
 const port = 5000;
 
 app.use(cors({ origin: '*' }));
+app.use('/', (req, res) => {
+  res.send('server is running successfull..' )
+})
 
 // Create HTTP server and WebSocket server
 const server = app.listen(port, () => {
