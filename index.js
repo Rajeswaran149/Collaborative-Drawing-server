@@ -7,9 +7,6 @@ const app = express();
 const port = 5000;
 
 app.use(cors({ origin: '*' }));
-app.use('/', (req, res) => {
-  res.send('Server is running successfully!');
-});
 
 // Create HTTP server
 const server = http.createServer(app);
@@ -19,6 +16,7 @@ const io = socketIo(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type"],
   },
 });
 
@@ -30,7 +28,7 @@ const broadcast = (message, socket) => {
   console.log("Broadcasting message: ", message);
   clients.forEach(client => {
     if (client !== socket) {
-      client.emit('message', message); // Send to all connected clients except the sender
+      client.emit('message', message); 
     }
   });
 };
@@ -91,6 +89,9 @@ app.post('/reset', (req, res) => {
   res.send('Canvas reset');
 });
 
+app.use('/', (req, res) => {
+  res.send('Server is running successfully!');
+});
 // Start the server
 server.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
