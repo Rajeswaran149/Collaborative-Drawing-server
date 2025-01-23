@@ -1,5 +1,5 @@
 const express = require('express');
-const http = require('http');
+const WebSocket = require('ws');
 const socketIo = require('socket.io');
 const cors = require('cors');
 
@@ -8,45 +8,41 @@ const port = 5000;
 
 app.use(cors({ origin: '*' }));
 app.use('/', (req, res) => {
-  res.send('Server is running successfully!');
+  res.send('server is running successfull..' )
+})
+
+// Create HTTP server and WebSocket server
+const server = app.listen(port, () => {
+  console.log(`Server running on http://localhost:${port}`);
 });
 
-// Create HTTP server
-const server = http.createServer(app);
-
-// Initialize Socket.IO with the HTTP server
-const io = socketIo(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
-  },
-});
+const wss = new WebSocket.Server({ server });
 
 // List of clients
 let clients = [];
 
 // Broadcast function to send drawing data to all clients
-const broadcast = (message, socket) => {
+const broadcast = (message, ws) => {
   console.log("Broadcasting message: ", message);
   clients.forEach(client => {
-    if (client !== socket) {
-      client.emit('message', message); // Send to all connected clients except the sender
+    if (client !== ws && client.readyState === WebSocket.OPEN) {
+      client.send(message);
     }
   });
 };
 
-// Handle new Socket.IO connections
-io.on('connection', (socket) => {
-  clients.push(socket);
+// Handle new WebSocket connections
+wss.on('connection', (ws) => {
+  clients.push(ws);
   console.log('A new client connected');
 
-  // Listen for messages from clients
-  socket.on('message', (message) => {
+  // Send the username of the new user
+  ws.on('message', (message) => {
     try {
       const data = JSON.parse(message);
       if (data.type === 'user_connected') {
         // Send a user-connected message to all other clients
-        broadcast(JSON.stringify({ type: 'user_connected', username: data.username }), socket);
+        broadcast(JSON.stringify({ type: 'user_connected', username: data.username }), ws);
       }
 
       if (data.type === 'draw') {
@@ -66,7 +62,7 @@ io.on('connection', (socket) => {
           brushSize: brushSize,
         });
 
-        broadcast(drawingMessage, socket);
+        broadcast(drawingMessage, ws);
       }
 
     } catch (error) {
@@ -75,12 +71,12 @@ io.on('connection', (socket) => {
   });
 
   // Handle disconnections
-  socket.on('disconnect', () => {
-    clients = clients.filter(client => client !== socket);
+  ws.on('close', () => {
+    clients = clients.filter(client => client !== ws);
     console.log('A client disconnected');
 
     // Notify all users when a user disconnects
-    broadcast(JSON.stringify({ type: 'user_disconnected', username: 'A user' }), socket);
+    broadcast(JSON.stringify({ type: 'user_disconnected', username: 'A user' }), ws);
   });
 });
 
@@ -89,9 +85,4 @@ app.post('/reset', (req, res) => {
   // Broadcast reset command to all clients
   broadcast(JSON.stringify({ type: 'reset_canvas' }));
   res.send('Canvas reset');
-});
-
-// Start the server
-server.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
 });
